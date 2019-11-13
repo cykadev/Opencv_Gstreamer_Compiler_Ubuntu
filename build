@@ -1,0 +1,84 @@
+#!/bin/bash
+
+sudo apt update
+
+DESKTOP="/home/$USER/Desktop"
+GSTREAMERDIR="opencv-gstreamer"
+GSTREAMERENV="gstreamer-env"
+
+cd $DESKTOP
+
+echo "Making root directory"
+
+if [ -d "$GSTREAMERDIR" ]; then
+  cd "$GSTREAMERDIR" && rm -rf *
+else
+   mkdir "$GSTREAMERDIR" && cd "$GSTREAMERDIR"
+fi
+
+echo "Checking python version"
+
+#check python version
+PYV=`python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)";`
+echo "Python version is "$PYV
+
+
+#install virtualenv
+if python -c "import virtualenv" &> /dev/null; then
+    echo "virtualenv module is installed"
+else
+    echo 'installing virtualenv module...'
+    pip3 install virtualenv
+fi
+
+#install gstreamer & packages
+echo "installing gstreamer"
+sudo apt-get install gstreamer1.*
+sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+
+
+#creating virtual env
+virtualenv -p python3 $GSTREAMERENV
+
+#switching to virtual env
+source $GSTREAMERENV/bin/activate
+
+#installing numpy
+pip install numpy
+
+
+#clone git repo https://github.com/opencv/opencv.git
+git clone https://github.com/opencv/opencv.git
+cd "opencv/"
+git checkout 4.1.0
+mkdir "build"
+cd "build/"
+
+cmake build
+cmake -D CMAKE_BUILD_TYPE=RELEASE \
+-D CMAKE_INSTALL_PREFIX=/usr/local \
+-D INSTALL_PYTHON_EXAMPLES=ON \
+-D INSTALL_C_EXAMPLES=OFF \
+-D PYTHON_EXECUTABLE=$(which python3) \
+-D BUILD_opencv_python2=OFF \
+-D CMAKE_INSTALL_PREFIX=$(python3 -c "import sys; print(sys.prefix)") \
+-D PYTHON3_EXECUTABLE=$(which python3) \
+-D PYTHON3_INCLUDE_DIR=$(python3 -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())") \
+-D PYTHON3_PACKAGES_PATH=$(python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())") \
+-D WITH_GSTREAMER=ON \
+-D BUILD_EXAMPLES=ON ..
+
+#build
+sudo make -j$(nproc)
+sudo make install
+sudo ldconfig
+
+
+#switching back to normal env
+#cd "$GSTREAMERENV/bin/" && deactivate
+
+#navigating to Desktop
+cd $DESKTOP
+
+
+
